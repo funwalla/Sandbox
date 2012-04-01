@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+""""Accessing twitter data using the python twitter api"""
+
 import twitter
 import json
 
