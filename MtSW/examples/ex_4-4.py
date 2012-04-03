@@ -14,7 +14,7 @@ from twitter__login import login
 # Redis
 from twitter__util import _getFriendsOrFollowersUsingFunc
 
-# Creates a consistent key value for a user given a screen name
+# Creates a consistent key value for a user given a screen name               
 from twitter__util import getRedisIdByScreenName
 
 SCREEN_NAME = sys.argv[1]

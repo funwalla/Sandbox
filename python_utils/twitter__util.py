@@ -84,7 +84,7 @@ def _getFriendsOrFollowersUsingFunc(func, key_name, twitterConnection, redisConn
             redisConnection.sadd(getRedisIdByScreenName(screen_name, key_name),
                                  _id)
         cursor = response['next_cursor']
-        scard = redisConnection.scard(getRedisIDByScreenName(screen_name, key_name))
+        scard = redisConnection.scard(getRedisIdByScreenName(screen_name, key_name))
         print >> sys.stderr, "Fetched %s ids for %s" % (scard, screen_name)
         if scard >= limit:
             break
@@ -126,8 +126,8 @@ def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[]
         user_ids_str = ','.join([str(_id) for _id in user_ids[:100]])
         user_ids = user_ids[100:]
 
-        response = makeTwitterRequest(t, 
-                                      t.users.lookup,
+        response = makeTwitterRequest(twitterConnection, 
+                                      twitterConnection.users.lookup,
                                       user_id=user_ids_str)
         
         
@@ -137,9 +137,9 @@ def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[]
         if type(response) is dict:  # Handle api quirk
             response = [response]
         for user_info in response:
-            r.set(getRedisIdByScreenName(user_info['screen_name'], 'info.json'),
+            redisConnection.set(getRedisIdByScreenName(user_info['screen_name'], 'info.json'),
                   json.dumps(user_info))
-            r.set(getRedisIdByUserId(user_info['id'], 'info.json'), 
+            redisConnection.set(getRedisIdByUserId(user_info['id'], 'info.json'), 
                   json.dumps(user_info))
         info.extend(response)         
             
