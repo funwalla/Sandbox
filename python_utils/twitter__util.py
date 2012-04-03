@@ -13,10 +13,10 @@ from twitter__login import login
 FRIENDS_LIMIT = 10000
 
 def makeTwitterRequest(t, twitterFunction, max_errors=3, *args, **kwArgs):
-    
+
     wait_period = 2
     error_count = 0
-    
+
     while True:
         try:
             return twitterFunction(*args, **kwArgs)
@@ -32,7 +32,7 @@ def makeTwitterRequest(t, twitterFunction, max_errors=3, *args, **kwArgs):
                 print >> sys.stderr, \
                       "Too many consecutive errors: bailing out."
                 raise
-                
+
 def _getRemainingHits(t):
     return t.account.rate_limit_status()['remaining_hits']
 
@@ -40,11 +40,11 @@ def _getRemainingHits(t):
 # Return an updated value for wait_period if the problem is a 503 error.
 # Block until the rate limit is reset if a rate limiting issue.
 def handleTwitterHTTPError(e, t, wait_period=2):
-    
+
     if wait_period > 3600: #seconds
         print >> sys.stderr, "Too many retries: quitting."
         raise e
-    
+
     if e.e.code == 401:
         print >> sys.stderr, "Encountered 401 Error (Not Authorized)"
         return None
@@ -52,7 +52,7 @@ def handleTwitterHTTPError(e, t, wait_period=2):
         print >> sys.stderr, \
               "Encountered %i Error. Will return in %i seconds" \
               % (e.e.code,
-                                                                                  wait_period)
+                 wait_period)
         time.sleep(wait_period)
         wait_period *= 1.5
         return wait_period
@@ -68,13 +68,13 @@ def handleTwitterHTTPError(e, t, wait_period=2):
         return 2  # used to reset wait_period to 2 seconds.
     else:
         raise e
-    
+
 # A template-like function that can get friends or followers depending on 
 # the function passed into it via func
 def _getFriendsOrFollowersUsingFunc(func, key_name, twitterConnection, redisConnection,
                                     screen_name=None, limit=FRIENDS_LIMIT):
     cursor = -1
-    
+
     result = []
     while cursor != 0:
         response = makeTwitterRequest(twitterConnection, func,
@@ -88,23 +88,23 @@ def _getFriendsOrFollowersUsingFunc(func, key_name, twitterConnection, redisConn
         print >> sys.stderr, "Fetched %s ids for %s" % (scard, screen_name)
         if scard >= limit:
             break
-        
+
     return result
 
 def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[],
                 verbose=False, sample=1.0):
-    
+
     # Sampling technique: randomize the lists and trim the length.
-    
+
     if sample < 1.0:
         for lst in [screen_names, user_ids]:
             shuffle(lst)
             lst = lst[:int(len(lst) * sample)]
-    
+
     info = []
     while len(screen_names) > 0:
         screen_names_str = ','.join(screen_names[:100])
-        
+
         response = makeTwitterRequest(twitterConnection,
                                       twitterConnection.users.lookup,
                                       screen_name=screen_names_str)
@@ -112,16 +112,16 @@ def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[]
             break
         if type(response) is dict:  # handle api quirk
             response = [response]
-        
+
         for user_info in response:
             redisConnection.set(getRedisIdByScreenName(user_info['screen_name'],
                                                        'info.json'),
                                 json.dumps(user_info))
             redisConnection.set(getRedisIdByUserId(user_info['id'],
-                                                       'info.json'),
+                                                   'info.json'),
                                 json.dumps(user_info))
         info.extend(response)
-        
+
     while len(user_ids) > 0:
         user_ids_str = ','.join([str(_id) for _id in user_ids[:100]])
         user_ids = user_ids[100:]
@@ -129,20 +129,20 @@ def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[]
         response = makeTwitterRequest(twitterConnection, 
                                       twitterConnection.users.lookup,
                                       user_id=user_ids_str)
-        
-        
+
+
         if response is None:
             break
-                                            
+
         if type(response) is dict:  # Handle api quirk
             response = [response]
         for user_info in response:
             redisConnection.set(getRedisIdByScreenName(user_info['screen_name'], 'info.json'),
-                  json.dumps(user_info))
+                                json.dumps(user_info))
             redisConnection.set(getRedisIdByUserId(user_info['id'], 'info.json'), 
-                  json.dumps(user_info))
+                                json.dumps(user_info))
         info.extend(response)         
-            
+
     return info
 
 # Covenience functions
