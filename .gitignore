@@ -3,3 +3,6 @@
 *.wpu
 *~
 *Mining_the_Social_Web*
+*.log
+*/out/*
+

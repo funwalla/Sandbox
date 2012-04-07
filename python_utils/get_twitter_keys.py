@@ -35,7 +35,7 @@ def get_twitter_oauth_token_secret():
     return keys['oauth_token_secret']
 
 
-if __name__ == "__main":
+if __name__ == "__main__":
     
     print "Redis returned the following Twitter keys:"
     print "consumer_key:", get_twitter_consumer_key()
