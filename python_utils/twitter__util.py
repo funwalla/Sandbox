@@ -71,7 +71,9 @@ def handleTwitterHTTPError(e, t, wait_period=2):
         raise e
 
 # A template-like function that can get friends or followers depending on 
-# the function passed into it via func
+# the function passed into it via func. Stores results in a redis set with
+# key 'screen_name$' + f_screen_name + '$' + key_name
+# 
 def _getFriendsOrFollowersUsingFunc(func, key_name, twitterConnection, redisConnection,
                                     screen_name=None, limit=FRIENDS_LIMIT):
     
@@ -97,6 +99,8 @@ def _getFriendsOrFollowersUsingFunc(func, key_name, twitterConnection, redisConn
 
     return result
 
+# Stores user info in redis sets keyed by screen_name and user id
+# i.e.: 'screen_name$' + screen_name/user_id + '$info.json'
 def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[],
                 verbose=False, sample=1.0):
 

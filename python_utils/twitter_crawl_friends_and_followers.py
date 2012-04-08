@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+Crawl down one level for each friend and follower of the input screen_names
+and return the user info. The program expect the input screen_names as
+command-line arguments.
+"""
 
 import sys
 import redis
