@@ -1,0 +1,14 @@
+#!wing
+#!version=4.0
+##################################################################
+# Wing IDE project file                                          #
+##################################################################
+[project attributes]
+proj.file-list = [loc('fig_scraper.py'),
+                  loc('get_twitter_keys.py'),
+                  loc('sandbox.py'),
+                  loc('twitter_crawl_friends_and_followers.py'),
+                  loc('twitter__get_friends_and_followers.py'),
+                  loc('twitter__login.py'),
+                  loc('twitter__util.py')]
+proj.file-type = 'shared'

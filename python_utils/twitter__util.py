@@ -15,7 +15,7 @@ FRIENDS_LIMIT = 10000
 
 def makeTwitterRequest(t, twitterFunction, max_errors=3, *args, **kwArgs):
     
-    logging.info("entering")
+    logging.debug("entering")
     wait_period = 2
     error_count = 0
     
@@ -29,13 +29,13 @@ def makeTwitterRequest(t, twitterFunction, max_errors=3, *args, **kwArgs):
                 return
         except URLError, e:
             error_count += 1
-            logging.info("URLError encountered. Continuing.")
+            logging.warning("URLError encountered. Continuing.")
             if error_count > max_errors:
-                logging.info("Too many consecutive errors: bailing out.")
+                logging.warning("Too many consecutive errors: bailing out.")
                 raise
 
 def _getRemainingHits(t):
-    logging.info("entering")
+    logging.debug("entering")
     return t.account.rate_limit_status()['remaining_hits']
 
 # Handle the common HTTPErrors. 
@@ -43,28 +43,30 @@ def _getRemainingHits(t):
 # Block until the rate limit is reset if a rate limiting issue.
 def handleTwitterHTTPError(e, t, wait_period=2):
 
-    logging.info("entering")
+    logging.debug("entering")
     if wait_period > 3600: #seconds
-        logging.info("Too many retries: quitting.")
+        logging.warning("Too many retries: quitting.")
         raise e
 
     if e.e.code == 401:
-        logging.info("Encountered 401 Error (Not Authorized)")
+        logging.warning("Encountered 401 Error (Not Authorized)")
         return None
     elif e.e.code in (502, 503):
-        logging.info("Encountered %i Error. Will return in %i seconds", \
+        logging.warning("Encountered %i Error. Will return in %i seconds", \
                      e.e.code, wait_period)
         time.sleep(wait_period)
         wait_period *= 1.5
         return wait_period
-    elif _getRemainingHits(t) == 0:
+    elif (_getRemainingHits(t) == 0 or e.e.code == 400):
         status = t.account.rate_limit_status()
         now = time.time()  #UTC
         when_rate_limit_resets = status['reset_time_in_seconds']
+        logging.debug("Rate limit reached: reset_time_in_seconds = ",
+                      when_rate_limit_resets)
         #Prevent negative numbers
         sleep_time = max(when_rate_limit_resets - now, 5)
         
-        logging.info("Rate limit reached: sleeping for %i seconds.", sleep_time)
+        logging.warning("Rate limit reached: sleeping for %i seconds.", sleep_time)
         time.sleep(sleep_time)
         return 2  # used to reset wait_period to 2 seconds.
     else:
@@ -77,24 +79,27 @@ def handleTwitterHTTPError(e, t, wait_period=2):
 def _getFriendsOrFollowersUsingFunc(func, key_name, twitterConnection, redisConnection,
                                     screen_name=None, limit=FRIENDS_LIMIT):
     
-    logging.info("entering")
+    logging.debug("entering")
     cursor = -1
 
     result = []
+    result_count = 0
     while cursor != 0:
-        logging.info("while loop: cursor = %d", cursor)
+        logging.debug("while loop: cursor = %d", cursor)
         response = makeTwitterRequest(twitterConnection, func,
                                       screen_name=screen_name, cursor=cursor)
-        logging.info("got %d responses", len(response))
+        logging.debug("got %d responses", len(response))
         for _id in response['ids']:
-            logging.info("response id for loop, _id = %s", _id)
+            logging.debug("response id for loop, _id = %s", _id)
             result.append(_id)
             redisConnection.sadd(getRedisIdByScreenName(screen_name, key_name),
                                  _id)
         cursor = response['next_cursor']
+        result_count += len(response['ids'])
         scard = redisConnection.scard(getRedisIdByScreenName(screen_name, key_name))
-        logging.info("Fetched %s ids for %s", scard, screen_name)
-        if scard >= limit:
+        logging.debug("Fetched %s ids for %s", scard, screen_name)
+        #if scard >= limit:
+        if result_count >= limit:
             break
 
     return result
@@ -104,7 +109,7 @@ def _getFriendsOrFollowersUsingFunc(func, key_name, twitterConnection, redisConn
 def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[],
                 verbose=False, sample=1.0):
 
-    logging.info("entering")
+    logging.debug("entering")
     # Sampling technique: randomize the lists and trim the length.
 
     if sample < 1.0:
@@ -112,12 +117,15 @@ def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[]
             shuffle(lst)
             lst = lst[:int(len(lst) * sample)]
 
+    logging.info("Retrieving user info for %d screen names and %d user ids",
+                 len(screen_names), len(user_ids) )
+    
     info = []
     while len(screen_names) > 0:
-        logging.info("screen_name while loop: Found %d screen names", len(screen_names))
+        logging.debug("screen_name while loop: Found %d screen names", len(screen_names))
         screen_names_str = ','.join(screen_names[:100])
         screen_names = screen_names[100:]
-        logging.info("%s", screen_names_str)
+        logging.debug("%s", screen_names_str)
 
         response = makeTwitterRequest(twitterConnection,
                                       twitterConnection.users.lookup,
@@ -135,11 +143,12 @@ def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[]
                                                    'info.json'),
                                 json.dumps(user_info))
         info.extend(response)
+        logging.info("Completed user info search for %d screen names", len(info) )
 
     while len(user_ids) > 0:
-        logging.info("user id while loop: found %d user ids", len(user_ids))
+        logging.debug("user id while loop: found %d user ids", len(user_ids))
         user_ids_str = ','.join([str(_id) for _id in user_ids[:100]])
-        logging.info("%s", user_ids_str)
+        logging.debug("%s", user_ids_str)
         user_ids = user_ids[100:]
 
         response = makeTwitterRequest(twitterConnection, 
@@ -158,6 +167,7 @@ def getUserInfo(twitterConnection, redisConnection, screen_names=[], user_ids=[]
             redisConnection.set(getRedisIdByUserId(user_info['id'], 'info.json'), 
                                 json.dumps(user_info))
         info.extend(response)         
+        logging.debug("Completed user info search for %d user ids", len(info) )
 
     return info
 
